@@ -24,20 +24,20 @@ interface RideFormData {
   pickupDistance: string;
   tripDistance: string;
   estimatedTime: string;
+  rating: string;
 }
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onAnalyze: (
-    data: {
-      platform: RidePlatform;
-      price: number;
-      pickupDistance: number;
-      tripDistance: number;
-      estimatedTime: number;
-    }
-  ) => void;
+  onAnalyze: (data: {
+    platform: RidePlatform;
+    price: number;
+    pickupDistance: number;
+    tripDistance: number;
+    estimatedTime: number;
+    rating?: number;
+  }) => void;
 }
 
 const PLATFORMS: { id: RidePlatform; label: string; color: string }[] = [
@@ -48,7 +48,7 @@ const PLATFORMS: { id: RidePlatform; label: string; color: string }[] = [
 
 export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(600)).current;
+  const slideAnim = useRef(new Animated.Value(700)).current;
 
   const [form, setForm] = useState<RideFormData>({
     platform: "uber",
@@ -56,6 +56,7 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
     pickupDistance: "",
     tripDistance: "",
     estimatedTime: "",
+    rating: "",
   });
   const [ocrText, setOcrText] = useState("");
   const [showOcr, setShowOcr] = useState(false);
@@ -70,7 +71,7 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
       }).start();
     } else {
       Animated.timing(slideAnim, {
-        toValue: 600,
+        toValue: 700,
         duration: 250,
         useNativeDriver: true,
       }).start();
@@ -82,34 +83,28 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
     setForm((f) => ({
       ...f,
       price: parsed.price?.toString() ?? f.price,
-      pickupDistance:
-        parsed.pickupDistance?.toString() ?? f.pickupDistance,
+      pickupDistance: parsed.pickupDistance?.toString() ?? f.pickupDistance,
       tripDistance: parsed.tripDistance?.toString() ?? f.tripDistance,
       estimatedTime: parsed.estimatedTime?.toString() ?? f.estimatedTime,
+      rating: parsed.rating?.toString() ?? f.rating,
     }));
     setShowOcr(false);
   };
 
   const handleAnalyze = () => {
     const price = parseFloat(form.price.replace(",", "."));
-    const pickupDistance = parseFloat(
-      form.pickupDistance.replace(",", ".")
-    );
+    const pickupDistance = parseFloat(form.pickupDistance.replace(",", "."));
     const tripDistance = parseFloat(form.tripDistance.replace(",", "."));
     const estimatedTime = parseFloat(form.estimatedTime.replace(",", "."));
-    if (
-      isNaN(price) ||
-      isNaN(tripDistance) ||
-      isNaN(estimatedTime) ||
-      price <= 0
-    )
-      return;
+    const rating = parseFloat(form.rating.replace(",", "."));
+    if (isNaN(price) || isNaN(tripDistance) || isNaN(estimatedTime) || price <= 0) return;
     onAnalyze({
       platform: form.platform,
       price,
       pickupDistance: isNaN(pickupDistance) ? 0 : pickupDistance,
       tripDistance,
       estimatedTime,
+      rating: isNaN(rating) ? undefined : rating,
     });
   };
 
@@ -125,12 +120,7 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -147,19 +137,14 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
           >
             <Pressable>
               <View style={styles.handle} />
-
               <View style={styles.header}>
-                <Text style={styles.title}>Analiza kursu</Text>
+                <Text style={styles.title}>Dane kursu</Text>
                 <TouchableOpacity onPress={onClose} testID="modal-close">
-                  <Feather
-                    name="x"
-                    size={22}
-                    color={Colors.light.textSecondary}
-                  />
+                  <Feather name="x" size={22} color={Colors.light.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              {/* Platform selector */}
+              {/* Platform */}
               <View style={styles.platformRow}>
                 {PLATFORMS.map((p) => (
                   <TouchableOpacity
@@ -186,22 +171,19 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
                 ))}
               </View>
 
-              {/* OCR paste */}
-              <TouchableOpacity
-                style={styles.ocrToggle}
-                onPress={() => setShowOcr(!showOcr)}
-              >
+              {/* OCR */}
+              <TouchableOpacity style={styles.ocrToggle} onPress={() => setShowOcr(!showOcr)}>
                 <Feather name="clipboard" size={14} color={Colors.light.tint} />
                 <Text style={styles.ocrToggleText}>
                   {showOcr ? "Wpisz ręcznie" : "Wklej tekst z ekranu (OCR)"}
                 </Text>
               </TouchableOpacity>
 
-              {showOcr ? (
+              {showOcr && (
                 <View style={styles.ocrBox}>
                   <TextInput
                     style={styles.ocrInput}
-                    placeholder="Wklej tekst z oferty kursu (np. '21,59 zł · 16.9 km · 8 min')"
+                    placeholder="Wklej tekst z oferty kursu np: '21,59 zł · ★4,79 · 16.9 km · 8 min'"
                     placeholderTextColor={Colors.light.textMuted}
                     value={ocrText}
                     onChangeText={setOcrText}
@@ -209,60 +191,68 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
                     numberOfLines={4}
                     textAlignVertical="top"
                   />
-                  <TouchableOpacity
-                    style={styles.parseBtn}
-                    onPress={handleParseOcr}
-                  >
+                  <TouchableOpacity style={styles.parseBtn} onPress={handleParseOcr}>
                     <Text style={styles.parseBtnText}>Analizuj tekst</Text>
                   </TouchableOpacity>
                 </View>
-              ) : null}
+              )}
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <View style={styles.form}>
-                  <InputRow
-                    label="Cena kursu"
-                    suffix="zł"
-                    value={form.price}
-                    onChangeText={(v) => update("price", v)}
-                    placeholder="np. 21.59"
-                    testID="input-price"
-                  />
-                  <InputRow
-                    label="Dystans do pasażera"
-                    suffix="km"
-                    value={form.pickupDistance}
-                    onChangeText={(v) => update("pickupDistance", v)}
-                    placeholder="np. 2.1"
-                    testID="input-pickup"
-                  />
-                  <InputRow
-                    label="Dystans przejazdu"
-                    suffix="km"
-                    value={form.tripDistance}
-                    onChangeText={(v) => update("tripDistance", v)}
-                    placeholder="np. 4.8"
-                    testID="input-trip"
-                  />
-                  <InputRow
+                  <View style={styles.row2}>
+                    <InputField
+                      label="Cena kursu"
+                      suffix="zł"
+                      value={form.price}
+                      onChangeText={(v) => update("price", v)}
+                      placeholder="21.59"
+                      testID="input-price"
+                      flex={2}
+                    />
+                    <InputField
+                      label="Ocena ★"
+                      suffix=""
+                      value={form.rating}
+                      onChangeText={(v) => update("rating", v)}
+                      placeholder="4.79"
+                      testID="input-rating"
+                      flex={1}
+                    />
+                  </View>
+                  <View style={styles.row2}>
+                    <InputField
+                      label="Km do pasażera"
+                      suffix="km"
+                      value={form.pickupDistance}
+                      onChangeText={(v) => update("pickupDistance", v)}
+                      placeholder="16.9"
+                      testID="input-pickup"
+                      flex={1}
+                    />
+                    <InputField
+                      label="Km kursu"
+                      suffix="km"
+                      value={form.tripDistance}
+                      onChangeText={(v) => update("tripDistance", v)}
+                      placeholder="4.8"
+                      testID="input-trip"
+                      flex={1}
+                    />
+                  </View>
+                  <InputField
                     label="Szacowany czas"
                     suffix="min"
                     value={form.estimatedTime}
                     onChangeText={(v) => update("estimatedTime", v)}
-                    placeholder="np. 8"
+                    placeholder="8"
                     testID="input-time"
+                    flex={1}
                   />
                 </View>
               </ScrollView>
 
               <TouchableOpacity
-                style={[
-                  styles.analyzeBtn,
-                  !isValid() && styles.analyzeBtnDisabled,
-                ]}
+                style={[styles.analyzeBtn, !isValid() && styles.analyzeBtnDisabled]}
                 onPress={handleAnalyze}
                 disabled={!isValid()}
                 testID="analyze-btn"
@@ -278,23 +268,14 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
   );
 }
 
-function InputRow({
-  label,
-  suffix,
-  value,
-  onChangeText,
-  placeholder,
-  testID,
+function InputField({
+  label, suffix, value, onChangeText, placeholder, testID, flex,
 }: {
-  label: string;
-  suffix: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder: string;
-  testID?: string;
+  label: string; suffix: string; value: string; onChangeText: (v: string) => void;
+  placeholder: string; testID?: string; flex: number;
 }) {
   return (
-    <View style={styles.inputRow}>
+    <View style={{ flex, gap: 5 }}>
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={styles.inputWrapper}>
         <TextInput
@@ -306,7 +287,7 @@ function InputRow({
           keyboardType="decimal-pad"
           testID={testID}
         />
-        <Text style={styles.suffix}>{suffix}</Text>
+        {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
       </View>
     </View>
   );
@@ -315,23 +296,20 @@ function InputRow({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.75)",
     justifyContent: "flex-end",
   },
-  kvView: {
-    justifyContent: "flex-end",
-  },
+  kvView: { justifyContent: "flex-end" },
   sheet: {
     backgroundColor: Colors.light.backgroundCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
-    maxHeight: "90%",
+    maxHeight: "92%",
   },
   handle: {
-    width: 40,
-    height: 4,
+    width: 40, height: 4,
     backgroundColor: Colors.light.borderLight,
     borderRadius: 2,
     alignSelf: "center",
@@ -341,7 +319,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 18,
   },
   title: {
     fontSize: 20,
@@ -351,7 +329,7 @@ const styles = StyleSheet.create({
   platformRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   platformBtn: {
     flex: 1,
@@ -390,7 +368,7 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    minHeight: 80,
+    minHeight: 70,
   },
   parseBtn: {
     backgroundColor: Colors.light.tintGlow,
@@ -405,19 +383,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
-  form: {
-    gap: 12,
-    paddingBottom: 8,
-  },
-  inputRow: {
-    gap: 6,
-  },
+  form: { gap: 10, paddingBottom: 8 },
+  row2: { flexDirection: "row", gap: 10 },
   inputLabel: {
     color: Colors.light.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_500Medium",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   inputWrapper: {
     flexDirection: "row",
@@ -426,8 +399,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
   },
   input: {
     flex: 1,
@@ -437,23 +410,21 @@ const styles = StyleSheet.create({
   },
   suffix: {
     color: Colors.light.textSecondary,
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    marginLeft: 6,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginLeft: 4,
   },
   analyzeBtn: {
     backgroundColor: Colors.light.tint,
-    paddingVertical: 16,
+    paddingVertical: 15,
     borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginTop: 16,
+    marginTop: 14,
   },
-  analyzeBtnDisabled: {
-    opacity: 0.4,
-  },
+  analyzeBtnDisabled: { opacity: 0.4 },
   analyzeBtnText: {
     color: "#000",
     fontSize: 16,

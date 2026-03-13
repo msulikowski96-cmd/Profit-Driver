@@ -5,34 +5,34 @@ import Colors from "@/constants/colors";
 
 interface Props {
   number: number;
+  icon: string;
   title: string;
   description: string;
-  icon: string;
   done?: boolean;
 }
 
-export function SetupStep({ number, title, description, icon, done }: Props) {
+export function SetupStep({ number, icon, title, description, done }: Props) {
   return (
     <View style={styles.container}>
-      <View style={[styles.iconBox, done && styles.iconBoxDone]}>
-        {done ? (
-          <Feather name="check" size={18} color={Colors.light.tint} />
-        ) : (
-          <Feather
-            name={icon as keyof typeof Feather.glyphMap}
-            size={18}
-            color={Colors.light.textSecondary}
-          />
-        )}
+      <View style={styles.leftCol}>
+        <View style={[styles.badge, done && styles.badgeDone]}>
+          {done ? (
+            <Feather name="check" size={12} color={Colors.light.tint} />
+          ) : (
+            <Text style={styles.badgeText}>{number}</Text>
+          )}
+        </View>
+        {number < 5 && <View style={styles.line} />}
       </View>
       <View style={styles.content}>
         <View style={styles.titleRow}>
-          <Text style={styles.step}>Krok {number}</Text>
-          {done ? (
-            <Text style={styles.doneBadge}>Gotowe</Text>
-          ) : null}
+          <Feather
+            name={icon as keyof typeof Feather.glyphMap}
+            size={14}
+            color={done ? Colors.light.tint : Colors.light.textSecondary}
+          />
+          <Text style={styles.title}>{title}</Text>
         </View>
-        <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>{description}</Text>
       </View>
     </View>
@@ -42,57 +42,56 @@ export function SetupStep({ number, title, description, icon, done }: Props) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    gap: 14,
-    marginBottom: 16,
+    gap: 12,
   },
-  iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+  leftCol: {
+    alignItems: "center",
+    width: 26,
+  },
+  badge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.light.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderWidth: 1.5,
+    borderColor: Colors.light.borderLight,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
   },
-  iconBoxDone: {
+  badgeDone: {
     borderColor: Colors.light.tint,
     backgroundColor: Colors.light.tintGlow,
   },
+  badgeText: {
+    color: Colors.light.textSecondary,
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+  },
+  line: {
+    flex: 1,
+    width: 1.5,
+    backgroundColor: Colors.light.border,
+    marginVertical: 4,
+    minHeight: 14,
+  },
   content: {
     flex: 1,
-    gap: 2,
+    paddingBottom: 16,
+    gap: 4,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  step: {
-    color: Colors.light.textMuted,
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  doneBadge: {
-    backgroundColor: Colors.light.tintGlow,
-    color: Colors.light.tint,
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    gap: 7,
   },
   title: {
     color: Colors.light.text,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
   description: {
     color: Colors.light.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
     lineHeight: 18,
   },

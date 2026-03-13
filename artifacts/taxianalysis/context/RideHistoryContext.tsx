@@ -17,14 +17,19 @@ export interface RideAnalysis {
   pickupDistance: number;
   tripDistance: number;
   estimatedTime: number;
+  rating?: number;
   totalDistance: number;
   pricePerKm: number;
   pricePerHour: number;
+  pricePerMinute: number;
   estimatedProfit: number;
+  deadKmRatio: number;
   isProfitable: boolean;
+  profitabilityScore: number;
+  failedReasons: string[];
 }
 
-const STORAGE_KEY = "taxianalysis_history";
+const STORAGE_KEY = "taxianalysis_history_v2";
 
 interface RideHistoryContextType {
   history: RideAnalysis[];
@@ -46,9 +51,7 @@ export function RideHistoryProvider({
       if (data) {
         try {
           setHistory(JSON.parse(data));
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
     });
   }, []);

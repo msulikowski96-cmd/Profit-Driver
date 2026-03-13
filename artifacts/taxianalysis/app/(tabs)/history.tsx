@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import {
   Alert,
   FlatList,
@@ -20,61 +20,45 @@ export default function HistoryScreen() {
   const { history, clearHistory } = useRideHistory();
   const isWeb = Platform.OS === "web";
 
-  const profitable = history.filter((r) => r.isProfitable).length;
-  const unprofitable = history.length - profitable;
-  const avgProfit =
-    history.length > 0
-      ? history.reduce((s, r) => s + r.estimatedProfit, 0) / history.length
-      : 0;
+  const stats = useMemo(() => {
+    const profitable = history.filter((r) => r.isProfitable).length;
+    const total = history.length;
+    const avgProfit = total > 0
+      ? history.reduce((s, r) => s + r.estimatedProfit, 0) / total : 0;
+    const avgScore = total > 0
+      ? history.reduce((s, r) => s + r.profitabilityScore, 0) / total : 0;
+    const avgKm = total > 0
+      ? history.reduce((s, r) => s + r.pricePerKm, 0) / total : 0;
+    const avgH = total > 0
+      ? history.reduce((s, r) => s + r.pricePerHour, 0) / total : 0;
+    return { profitable, unprofitable: total - profitable, avgProfit, avgScore, avgKm, avgH };
+  }, [history]);
 
   const handleClear = () => {
-    if (Platform.OS === "web") {
-      clearHistory();
-      return;
-    }
-    Alert.alert(
-      "Wyczyść historię",
-      "Czy na pewno chcesz usunąć całą historię kursów?",
-      [
-        { text: "Anuluj", style: "cancel" },
-        {
-          text: "Usuń",
-          style: "destructive",
-          onPress: async () => {
-            await clearHistory();
-            if (Platform.OS !== "web") {
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success
-              );
-            }
-          },
+    if (Platform.OS === "web") { clearHistory(); return; }
+    Alert.alert("Wyczyść historię", "Czy na pewno chcesz usunąć całą historię kursów?", [
+      { text: "Anuluj", style: "cancel" },
+      {
+        text: "Usuń", style: "destructive",
+        onPress: async () => {
+          await clearHistory();
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const renderItem = ({ item }: { item: RideAnalysis }) => (
-    <HistoryItem item={item} />
-  );
+  const renderItem = ({ item }: { item: RideAnalysis }) => <HistoryItem item={item} />;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          paddingTop: isWeb ? insets.top + 67 : insets.top + 16,
-        },
-      ]}
-    >
+    <View style={[styles.container, { paddingTop: isWeb ? insets.top + 67 : insets.top + 16 }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Historia kursów</Text>
         {history.length > 0 ? (
-          <TouchableOpacity
-            onPress={handleClear}
-            style={styles.clearBtn}
-            testID="clear-history"
-          >
+          <TouchableOpacity onPress={handleClear} style={styles.clearBtn} testID="clear-history">
             <Feather name="trash-2" size={16} color={Colors.light.danger} />
           </TouchableOpacity>
         ) : null}
@@ -82,26 +66,18 @@ export default function HistoryScreen() {
 
       {/* Summary stats */}
       {history.length > 0 ? (
-        <View style={styles.statsRow}>
-          <SummaryChip
-            icon="check-circle"
-            value={profitable.toString()}
-            label="Opłacalnych"
-            color={Colors.light.tint}
-          />
-          <SummaryChip
-            icon="x-circle"
-            value={unprofitable.toString()}
-            label="Nieopłacalnych"
-            color={Colors.light.danger}
-          />
-          <SummaryChip
-            icon="dollar-sign"
-            value={`${avgProfit.toFixed(1)} zł`}
-            label="Śr. zysk"
-            color={Colors.light.warning}
-          />
-        </View>
+        <>
+          <View style={styles.statsRow}>
+            <SummaryChip icon="check-circle" value={stats.profitable.toString()} label="Opłacalnych" color={Colors.light.tint} />
+            <SummaryChip icon="x-circle" value={stats.unprofitable.toString()} label="Nieopłacalnych" color={Colors.light.danger} />
+            <SummaryChip icon="star" value={stats.avgScore.toFixed(0)} label="Śr. wynik" color={Colors.light.warning} />
+          </View>
+          <View style={styles.statsRow2}>
+            <DetailChip label="Śr. zł/km" value={stats.avgKm.toFixed(2)} />
+            <DetailChip label="Śr. zł/h" value={Math.round(stats.avgH).toString()} />
+            <DetailChip label="Śr. zysk" value={`${stats.avgProfit.toFixed(1)} zł`} />
+          </View>
+        </>
       ) : null}
 
       <FlatList
@@ -121,31 +97,23 @@ export default function HistoryScreen() {
   );
 }
 
-function SummaryChip({
-  icon,
-  value,
-  label,
-  color,
-}: {
-  icon: string;
-  value: string;
-  label: string;
-  color: string;
+function SummaryChip({ icon, value, label, color }: {
+  icon: string; value: string; label: string; color: string;
 }) {
   return (
-    <View
-      style={[
-        styles.chip,
-        { backgroundColor: `${color}14`, borderColor: `${color}30` },
-      ]}
-    >
-      <Feather
-        name={icon as keyof typeof Feather.glyphMap}
-        size={14}
-        color={color}
-      />
+    <View style={[styles.chip, { backgroundColor: `${color}14`, borderColor: `${color}30` }]}>
+      <Feather name={icon as keyof typeof Feather.glyphMap} size={14} color={color} />
       <Text style={[styles.chipValue, { color }]}>{value}</Text>
       <Text style={styles.chipLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function DetailChip({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailChip}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
 }
@@ -157,100 +125,49 @@ function EmptyHistory() {
         <Feather name="clock" size={36} color={Colors.light.textMuted} />
       </View>
       <Text style={styles.emptyTitle}>Brak historii</Text>
-      <Text style={styles.emptyText}>
-        Przeanalizowane kursy pojawią się tutaj
-      </Text>
+      <Text style={styles.emptyText}>Przeanalizowane kursy pojawią się tutaj</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
+  container: { flex: 1, backgroundColor: Colors.light.background },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, marginBottom: 14,
   },
-  title: {
-    fontSize: 26,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
-  },
+  title: { fontSize: 26, fontFamily: "Inter_700Bold", color: Colors.light.text },
   clearBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 40, height: 40, borderRadius: 12,
     backgroundColor: Colors.light.dangerGlow,
-    borderWidth: 1,
-    borderColor: `${Colors.light.danger}40`,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1, borderColor: `${Colors.light.danger}40`,
+    alignItems: "center", justifyContent: "center",
   },
-  statsRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
+  statsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginBottom: 8 },
+  statsRow2: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginBottom: 14 },
   chip: {
-    flex: 1,
-    flexDirection: "column",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 3,
+    flex: 1, flexDirection: "column", alignItems: "center",
+    paddingVertical: 10, paddingHorizontal: 8,
+    borderRadius: 12, borderWidth: 1, gap: 3,
   },
-  chipValue: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-  },
-  chipLabel: {
-    fontSize: 10,
-    color: Colors.light.textMuted,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-  },
-  list: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-  },
-  emptyList: {
-    flex: 1,
-  },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 80,
-    gap: 10,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+  chipValue: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  chipLabel: { fontSize: 10, color: Colors.light.textMuted, fontFamily: "Inter_400Regular", textAlign: "center" },
+  detailChip: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: Colors.light.backgroundCard,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+    borderRadius: 10, borderWidth: 1, borderColor: Colors.light.border,
+    paddingHorizontal: 10, paddingVertical: 7,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.light.text,
+  detailLabel: { color: Colors.light.textSecondary, fontSize: 11, fontFamily: "Inter_400Regular" },
+  detailValue: { color: Colors.light.text, fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  list: { paddingHorizontal: 20, paddingBottom: 100 },
+  emptyList: { flex: 1 },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 10 },
+  emptyIcon: {
+    width: 72, height: 72, borderRadius: 20,
+    backgroundColor: Colors.light.backgroundCard, borderWidth: 1, borderColor: Colors.light.border,
+    alignItems: "center", justifyContent: "center", marginBottom: 8,
   },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-  },
+  emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  emptyText: { fontSize: 14, color: Colors.light.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center" },
 });

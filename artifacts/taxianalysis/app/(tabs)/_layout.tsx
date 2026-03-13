@@ -17,6 +17,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "bolt", selected: "bolt.fill" }} />
         <Label>Analizuj</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="area">
+        <Icon sf={{ default: "crop", selected: "crop" }} />
+        <Label>Obszar</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="history">
         <Icon sf={{ default: "clock", selected: "clock.fill" }} />
         <Label>Historia</Label>
@@ -32,7 +36,6 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const isDark = true;
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
@@ -76,6 +79,18 @@ function ClassicTabLayout() {
               <SymbolView name="bolt.fill" tintColor={color} size={22} />
             ) : (
               <Feather name="zap" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="area"
+        options={{
+          title: "Obszar",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="crop" tintColor={color} size={22} />
+            ) : (
+              <Feather name="crop" size={22} color={color} />
             ),
         }}
       />
