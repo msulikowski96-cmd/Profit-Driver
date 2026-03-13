@@ -285,6 +285,16 @@ const withRideAccessibilityService = (config) => {
       fs.writeFileSync(path.join(javaDir, "RideAccessibilityService.java"), ACCESSIBILITY_SERVICE_JAVA, "utf8");
       fs.writeFileSync(path.join(xmlDir, "accessibility_service_config.xml"), ACCESSIBILITY_CONFIG_XML, "utf8");
 
+      // Add string resource for accessibility service description
+      const valuesDir = path.join(root, "android", "app", "src", "main", "res", "values");
+      fs.mkdirSync(valuesDir, { recursive: true });
+      const stringsPath = path.join(valuesDir, "accessibility_strings.xml");
+      fs.writeFileSync(stringsPath, `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">TaxiAnalysis odczytuje dane kursu z ekranu aplikacji kierowcy (Uber, Bolt, FreeNow) aby automatycznie analizować opłacalność ofert.</string>
+</resources>
+`, "utf8");
+
       console.log("[withRideAccessibilityService] Files written.");
       return cfg;
     },

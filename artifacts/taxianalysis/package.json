@@ -57,6 +57,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@react-native-community/slider": "^5.1.2"
+    "@react-native-community/slider": "^5.1.2",
+    "expo-dev-client": "~6.0.20"
   }
 }
