@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { PaymentType } from "@/components/RideInputModal";
 
 export type Platform = "uber" | "bolt" | "freeNow";
 
@@ -13,23 +14,31 @@ export interface RideAnalysis {
   id: string;
   timestamp: number;
   platform: Platform;
+  serviceType: string;
+  paymentType: PaymentType;
   price: number;
   pickupDistance: number;
+  pickupTime: number;
   tripDistance: number;
-  estimatedTime: number;
+  tripTime: number;
   rating?: number;
+  pickupAddress?: string;
+  destinationAddress?: string;
+  // Computed
   totalDistance: number;
+  totalTime: number;
   pricePerKm: number;
   pricePerHour: number;
   pricePerMinute: number;
   estimatedProfit: number;
   deadKmRatio: number;
+  deadTimeRatio: number;
   isProfitable: boolean;
   profitabilityScore: number;
   failedReasons: string[];
 }
 
-const STORAGE_KEY = "taxianalysis_history_v2";
+const STORAGE_KEY = "taxianalysis_history_v3";
 
 interface RideHistoryContextType {
   history: RideAnalysis[];

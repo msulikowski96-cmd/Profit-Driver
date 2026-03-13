@@ -2,18 +2,21 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Colors from "@/constants/colors";
+import { RideAnalysis } from "@/context/RideHistoryContext";
 import { CalculationResult } from "@/utils/calculator";
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: "Gotówka",
+  card: "Karta",
+  online: "Online",
+};
 
 interface Props {
   result: CalculationResult;
-  price: number;
-  pickupDistance: number;
-  tripDistance: number;
-  estimatedTime: number;
-  rating?: number;
+  ride: RideAnalysis;
 }
 
-export function ResultCard({ result, price, pickupDistance, tripDistance, estimatedTime, rating }: Props) {
+export function ResultCard({ result, ride }: Props) {
   const scaleAnim = useRef(new Animated.Value(0.93)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -36,7 +39,7 @@ export function ResultCard({ result, price, pickupDistance, tripDistance, estima
           <View style={[styles.iconCircle, { backgroundColor: accent }]}>
             <Feather name={isGood ? "check" : "x"} size={22} color="#000" />
           </View>
-          <View>
+          <View style={styles.verdictText}>
             <Text style={[styles.verdictTitle, { color: accent }]}>
               {isGood ? "Opłacalny kurs" : "Nieopłacalny"}
             </Text>
@@ -45,24 +48,45 @@ export function ResultCard({ result, price, pickupDistance, tripDistance, estima
             </Text>
           </View>
         </View>
-        <Text style={[styles.priceMain, { color: accent }]}>{price.toFixed(2)} zł</Text>
+        <View style={styles.verdictRight}>
+          <Text style={[styles.priceMain, { color: accent }]}>{ride.price.toFixed(2)} zł</Text>
+          <View style={styles.paymentBadge}>
+            <Feather
+              name={ride.paymentType === "cash" ? "dollar-sign" : ride.paymentType === "card" ? "credit-card" : "smartphone"}
+              size={10}
+              color={Colors.light.textMuted}
+            />
+            <Text style={styles.paymentText}>{PAYMENT_LABELS[ride.paymentType] ?? ride.paymentType}</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Average price comparison */}
-      {result.avgPriceSoFar != null && (
-        <View style={styles.avgRow}>
-          <Feather name="bar-chart-2" size={13} color={Colors.light.textSecondary} />
-          <Text style={styles.avgText}>
-            Śr. cena z ostatnich kursów:{" "}
-            <Text style={{ color: Colors.light.text, fontFamily: "Inter_600SemiBold" }}>
-              {result.avgPriceSoFar.toFixed(2)} zł
-            </Text>
-            {price > result.avgPriceSoFar
-              ? <Text style={{ color: Colors.light.tint }}> ↑ powyżej średniej</Text>
-              : <Text style={{ color: Colors.light.danger }}> ↓ poniżej średniej</Text>}
-          </Text>
+      {/* Service type + rating row */}
+      <View style={styles.metaRow}>
+        <View style={styles.metaChip}>
+          <Feather name="layers" size={11} color={Colors.light.textSecondary} />
+          <Text style={styles.metaText}>{ride.serviceType}</Text>
         </View>
-      )}
+        {ride.rating != null && (
+          <View style={[styles.metaChip, { backgroundColor: Colors.light.warningGlow, borderColor: `${Colors.light.warning}40` }]}>
+            <Feather name="star" size={11} color={Colors.light.warning} />
+            <Text style={[styles.metaText, { color: Colors.light.warning }]}>
+              {ride.rating.toFixed(2)}
+            </Text>
+          </View>
+        )}
+        {result.avgPriceSoFar != null && (
+          <View style={styles.metaChip}>
+            <Feather name="bar-chart-2" size={11} color={Colors.light.textSecondary} />
+            <Text style={styles.metaText}>
+              śr. {result.avgPriceSoFar.toFixed(2)} zł
+              {ride.price > result.avgPriceSoFar
+                ? <Text style={{ color: Colors.light.tint }}> ↑</Text>
+                : <Text style={{ color: Colors.light.danger }}> ↓</Text>}
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* Main metrics grid */}
       <View style={styles.statsGrid}>
@@ -74,7 +98,7 @@ export function ResultCard({ result, price, pickupDistance, tripDistance, estima
 
       {/* Threshold checks */}
       <View style={styles.thresholdsCard}>
-        <Text style={styles.sectionTitle}>Sprawdzenie progów</Text>
+        <Text style={styles.cardTitle}>Sprawdzenie progów</Text>
         {result.thresholdChecks.map((check) => (
           <View key={check.label} style={styles.checkRow}>
             <Feather
@@ -93,24 +117,67 @@ export function ResultCard({ result, price, pickupDistance, tripDistance, estima
         ))}
       </View>
 
-      {/* Route breakdown */}
+      {/* Route breakdown matching Uber notification layout */}
       <View style={styles.routeCard}>
-        <Text style={styles.sectionTitle}>Szczegóły trasy</Text>
-        <RouteRow icon="navigation" label="Km do pasażera (martwy km)" value={`${pickupDistance.toFixed(1)} km`} />
+        <Text style={styles.cardTitle}>Szczegóły trasy</Text>
+
+        {/* Pickup section */}
+        <View style={styles.routeSection}>
+          <View style={styles.routeDot}>
+            <View style={styles.routeDotInner} />
+            <View style={styles.routeLine} />
+          </View>
+          <View style={styles.routeContent}>
+            <View style={styles.routeRowInner}>
+              <Text style={styles.routeTimeLabel}>
+                {ride.pickupTime} min ({ride.pickupDistance.toFixed(1)} km)
+              </Text>
+              <Text style={styles.routeTag}>dojazd do pasażera</Text>
+            </View>
+            {ride.pickupAddress ? (
+              <Text style={styles.routeAddress}>{ride.pickupAddress}</Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Trip section */}
+        <View style={styles.routeSection}>
+          <View style={styles.routeDot}>
+            <View style={[styles.routeDotInner, styles.routeDotDest]} />
+          </View>
+          <View style={styles.routeContent}>
+            <View style={styles.routeRowInner}>
+              <Text style={styles.routeTimeLabel}>
+                {ride.tripTime} min ({ride.tripDistance.toFixed(1)} km)
+              </Text>
+              <Text style={styles.routeTag}>przejazd</Text>
+            </View>
+            {ride.destinationAddress ? (
+              <Text style={styles.routeAddress}>{ride.destinationAddress}</Text>
+            ) : null}
+          </View>
+        </View>
+
         <View style={styles.sep} />
-        <RouteRow icon="map-pin" label="Km kursu" value={`${tripDistance.toFixed(1)} km`} />
-        <View style={styles.sep} />
+
+        {/* Totals */}
         <RouteRow icon="map" label="Suma km" value={`${result.totalDistance.toFixed(1)} km`} />
         <View style={styles.sep} />
-        <RouteRow icon="percent" label="Udział martwych km" value={`${(result.deadKmRatio * 100).toFixed(0)}%`} />
+        <RouteRow icon="clock" label="Suma czasu" value={`${result.totalTime} min`} />
         <View style={styles.sep} />
-        <RouteRow icon="clock" label="Szacowany czas" value={`${estimatedTime} min`} />
-        {rating != null && (
-          <>
-            <View style={styles.sep} />
-            <RouteRow icon="star" label="Ocena pasażera" value={rating.toFixed(2)} />
-          </>
-        )}
+        <RouteRow
+          icon="percent"
+          label="Udział martwych km"
+          value={`${(result.deadKmRatio * 100).toFixed(0)}%`}
+          valueColor={result.deadKmRatio > 0.4 ? Colors.light.danger : Colors.light.textSecondary}
+        />
+        <View style={styles.sep} />
+        <RouteRow
+          icon="clock"
+          label="Udział czasu podjazdu"
+          value={`${(result.deadTimeRatio * 100).toFixed(0)}%`}
+          valueColor={result.deadTimeRatio > 0.5 ? Colors.light.danger : Colors.light.textSecondary}
+        />
       </View>
     </Animated.View>
   );
@@ -131,12 +198,14 @@ function StatBox({ icon, label, value, accent }: {
   );
 }
 
-function RouteRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function RouteRow({ icon, label, value, valueColor }: {
+  icon: string; label: string; value: string; valueColor?: string;
+}) {
   return (
-    <View style={styles.routeRow}>
+    <View style={styles.simpleRow}>
       <Feather name={icon as keyof typeof Feather.glyphMap} size={14} color={Colors.light.textSecondary} />
-      <Text style={styles.routeLabel}>{label}</Text>
-      <Text style={styles.routeValue}>{value}</Text>
+      <Text style={styles.simpleLabel}>{label}</Text>
+      <Text style={[styles.simpleValue, valueColor ? { color: valueColor } : {}]}>{value}</Text>
     </View>
   );
 }
@@ -148,19 +217,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   verdictLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  verdictText: { flex: 1, gap: 2 },
+  verdictRight: { alignItems: "flex-end", gap: 4 },
   iconCircle: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 40, height: 40, borderRadius: 20,
     alignItems: "center", justifyContent: "center",
   },
   verdictTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  verdictSub: { color: Colors.light.textSecondary, fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  verdictSub: { color: Colors.light.textSecondary, fontSize: 10, fontFamily: "Inter_400Regular" },
   priceMain: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  avgRow: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: Colors.light.backgroundCard, borderRadius: 10,
-    padding: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.light.border,
+  paymentBadge: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: Colors.light.backgroundSecondary,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
   },
-  avgText: { color: Colors.light.textSecondary, fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+  paymentText: { color: Colors.light.textMuted, fontSize: 10, fontFamily: "Inter_400Regular" },
+  metaRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 8 },
+  metaChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: Colors.light.backgroundCard,
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5,
+    borderWidth: 1, borderColor: Colors.light.border,
+  },
+  metaText: { color: Colors.light.textSecondary, fontSize: 12, fontFamily: "Inter_500Medium" },
   statsGrid: { flexDirection: "row", gap: 6, marginBottom: 8 },
   statBox: {
     flex: 1, backgroundColor: Colors.light.backgroundCard, borderRadius: 12,
@@ -174,7 +253,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.light.border,
     padding: 14, marginBottom: 8, gap: 8,
   },
-  sectionTitle: {
+  cardTitle: {
     color: Colors.light.textSecondary, fontSize: 11, fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
   },
@@ -187,8 +266,31 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.backgroundCard, borderRadius: 16,
     borderWidth: 1, borderColor: Colors.light.border, padding: 14, gap: 8,
   },
-  routeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  routeLabel: { flex: 1, color: Colors.light.text, fontSize: 13, fontFamily: "Inter_400Regular" },
-  routeValue: { color: Colors.light.textSecondary, fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  routeSection: { flexDirection: "row", gap: 10, minHeight: 40 },
+  routeDot: { alignItems: "center", paddingTop: 3 },
+  routeDotInner: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: Colors.light.textSecondary, borderWidth: 2, borderColor: Colors.light.border,
+  },
+  routeDotDest: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tintGlow,
+  },
+  routeLine: {
+    width: 1.5, flex: 1, minHeight: 20,
+    backgroundColor: Colors.light.border, marginTop: 3,
+  },
+  routeContent: { flex: 1, paddingBottom: 8, gap: 2 },
+  routeRowInner: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  routeTimeLabel: { color: Colors.light.text, fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  routeTag: {
+    color: Colors.light.textMuted, fontSize: 11, fontFamily: "Inter_400Regular",
+    backgroundColor: Colors.light.backgroundSecondary,
+    paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4,
+  },
+  routeAddress: { color: Colors.light.textSecondary, fontSize: 12, fontFamily: "Inter_400Regular" },
   sep: { height: 1, backgroundColor: Colors.light.border },
+  simpleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  simpleLabel: { flex: 1, color: Colors.light.text, fontSize: 13, fontFamily: "Inter_400Regular" },
+  simpleValue: { color: Colors.light.textSecondary, fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });

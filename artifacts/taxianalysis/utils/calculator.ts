@@ -1,10 +1,12 @@
 import { Settings } from "@/context/SettingsContext";
+import { PaymentType } from "@/components/RideInputModal";
 
 export interface RideData {
   price: number;
   pickupDistance: number;
+  pickupTime: number;
   tripDistance: number;
-  estimatedTime: number;
+  tripTime: number;
   rating?: number;
 }
 
@@ -17,11 +19,13 @@ export interface ThresholdCheck {
 
 export interface CalculationResult {
   totalDistance: number;
+  totalTime: number;
   pricePerKm: number;
   pricePerHour: number;
   pricePerMinute: number;
   estimatedProfit: number;
   deadKmRatio: number;
+  deadTimeRatio: number;
   efficiencyScore: number;
   isProfitable: boolean;
   profitabilityScore: number;
@@ -50,15 +54,21 @@ export function calculateRide(
   settings: Settings
 ): CalculationResult {
   const totalDistance = ride.pickupDistance + ride.tripDistance;
+  const totalTime = ride.pickupTime + ride.tripTime;
+
+  // Price per km based on total distance driven
   const pricePerKm = totalDistance > 0 ? ride.price / totalDistance : 0;
-  const pricePerHour =
-    ride.estimatedTime > 0 ? (ride.price / ride.estimatedTime) * 60 : 0;
-  const pricePerMinute =
-    ride.estimatedTime > 0 ? ride.price / ride.estimatedTime : 0;
+  // Price per hour based on total time including pickup
+  const pricePerHour = totalTime > 0 ? (ride.price / totalTime) * 60 : 0;
+  const pricePerMinute = totalTime > 0 ? ride.price / totalTime : 0;
+
   const fuelCost = totalDistance * settings.fuelCostPerKm;
   const estimatedProfit = ride.price - fuelCost;
-  const deadKmRatio =
-    totalDistance > 0 ? ride.pickupDistance / totalDistance : 0;
+
+  // Dead km = pickup distance / total distance
+  const deadKmRatio = totalDistance > 0 ? ride.pickupDistance / totalDistance : 0;
+  // Dead time ratio = pickup time / total time
+  const deadTimeRatio = totalTime > 0 ? ride.pickupTime / totalTime : 0;
 
   // ── Threshold checks ───────────────────────────────────────────────────────
   const thresholdChecks: ThresholdCheck[] = [
@@ -70,13 +80,13 @@ export function calculateRide(
     },
     {
       label: "zł / km",
-      value: `${pricePerKm.toFixed(2)}`,
+      value: pricePerKm.toFixed(2),
       threshold: `min ${settings.minPricePerKm.toFixed(2)}`,
       passed: pricePerKm >= settings.minPricePerKm,
     },
     {
       label: "zł / godz.",
-      value: `${Math.round(pricePerHour)}`,
+      value: Math.round(pricePerHour).toString(),
       threshold: `min ${Math.round(settings.minPricePerHour)}`,
       passed: pricePerHour >= settings.minPricePerHour,
     },
@@ -84,8 +94,7 @@ export function calculateRide(
       label: "Ocena kierowcy",
       value: ride.rating != null ? ride.rating.toFixed(2) : "–",
       threshold: `min ${settings.minRating.toFixed(2)}`,
-      passed:
-        ride.rating == null || ride.rating >= settings.minRating,
+      passed: ride.rating == null || ride.rating >= settings.minRating,
     },
     {
       label: "Martwy km (podjazd/całość)",
@@ -102,13 +111,10 @@ export function calculateRide(
   const isProfitable = thresholdChecks.every((c) => c.passed);
 
   // ── Profitability score (0–100) ────────────────────────────────────────────
-  // Weighted: zł/km 35%, zł/h 35%, price 15%, rating 10%, dead_km 5%
-  const kmScore = Math.min((pricePerKm / settings.minPricePerKm) * 35, 35);
-  const hourScore = Math.min(
-    (pricePerHour / settings.minPricePerHour) * 35,
-    35
-  );
-  const priceScore = Math.min((ride.price / settings.minPrice) * 15, 15);
+  // Weights: zł/km 35%, zł/h 35%, price 15%, rating 10%, dead_km 5%
+  const kmScore = Math.min((pricePerKm / Math.max(settings.minPricePerKm, 0.01)) * 35, 35);
+  const hourScore = Math.min((pricePerHour / Math.max(settings.minPricePerHour, 1)) * 35, 35);
+  const priceScore = Math.min((ride.price / Math.max(settings.minPrice, 0.01)) * 15, 15);
   const ratingScore =
     ride.rating != null && settings.minRating > 0
       ? Math.min((ride.rating / settings.minRating) * 10, 10)
@@ -116,8 +122,7 @@ export function calculateRide(
   const deadKmScore =
     settings.maxDeadKmRatio > 0
       ? Math.min(
-          ((settings.maxDeadKmRatio - deadKmRatio) / settings.maxDeadKmRatio) *
-            5,
+          ((settings.maxDeadKmRatio - deadKmRatio) / settings.maxDeadKmRatio) * 5,
           5
         )
       : 5;
@@ -141,11 +146,13 @@ export function calculateRide(
 
   return {
     totalDistance,
+    totalTime,
     pricePerKm,
     pricePerHour,
     pricePerMinute,
     estimatedProfit,
     deadKmRatio,
+    deadTimeRatio,
     efficiencyScore,
     isProfitable,
     profitabilityScore,
@@ -155,42 +162,92 @@ export function calculateRide(
   };
 }
 
-export function parseRideText(text: string): Partial<RideData> {
-  const result: Partial<RideData> = {};
+export interface ParsedRideText {
+  price?: number;
+  rating?: number;
+  pickupDistance?: number;
+  pickupTime?: number;
+  tripDistance?: number;
+  tripTime?: number;
+  pickupAddress?: string;
+  destinationAddress?: string;
+}
 
-  const priceMatch = text.match(/(\d+[.,]\d+|\d+)\s*z[łl]/i);
+/**
+ * Parses Uber/Bolt/FreeNow notification text.
+ *
+ * Uber format example:
+ * "12,86 zł  Płatność gotówką  ★ 5,00
+ *  21 min (11.8 km) od miejsca odbioru
+ *  ulica Pocztowa 3, Komorniki
+ *  3 min (1.1 km) przejazd
+ *  ulica Zbożowa 4, Komorniki"
+ */
+export function parseRideText(text: string): ParsedRideText {
+  const result: ParsedRideText = {};
+  const normalized = text.replace(/\r/g, "\n");
+
+  // Price: "12,86 zł" or "12.86 zł"
+  const priceMatch = normalized.match(/(\d+[.,]\d+|\d+)\s*z[łl]/i);
   if (priceMatch) {
     result.price = parseFloat(priceMatch[1].replace(",", "."));
   }
 
-  const kmMatches = text.match(/(\d+[.,]\d+|\d+)\s*km/gi);
-  if (kmMatches) {
-    const distances = kmMatches.map((m) => {
-      const num = m.match(/(\d+[.,]\d+|\d+)/);
-      return num ? parseFloat(num[1].replace(",", ".")) : 0;
-    });
-    if (distances.length === 1) {
-      result.tripDistance = distances[0];
-      result.pickupDistance = 0;
-    } else if (distances.length >= 2) {
-      result.pickupDistance = distances[0];
-      result.tripDistance = distances[1];
+  // Rating: "★ 5,00" or "★5.00" or "* 5.00"
+  const ratingMatch = normalized.match(/[★*✩]\s*(\d[.,]\d{1,2})/);
+  if (ratingMatch) {
+    result.rating = parseFloat(ratingMatch[1].replace(",", "."));
+  }
+
+  // Uber/Bolt pattern: "21 min (11.8 km) od miejsca odbioru" for pickup
+  // then "3 min (1.1 km) przejazd" for trip
+  const pickupMatch = normalized.match(
+    /(\d+)\s*min\s*\((\d+[.,]\d+|\d+)\s*km\)\s*(?:od miejsca odbioru|do pasażera|podjazd|pickup)/i
+  );
+  if (pickupMatch) {
+    result.pickupTime = parseInt(pickupMatch[1]);
+    result.pickupDistance = parseFloat(pickupMatch[2].replace(",", "."));
+  }
+
+  const tripMatch = normalized.match(
+    /(\d+)\s*min\s*\((\d+[.,]\d+|\d+)\s*km\)\s*(?:przejazd|kurs|trip|ride)/i
+  );
+  if (tripMatch) {
+    result.tripTime = parseInt(tripMatch[1]);
+    result.tripDistance = parseFloat(tripMatch[2].replace(",", "."));
+  }
+
+  // Fallback: if only bare km values without labels
+  if (result.pickupDistance == null && result.tripDistance == null) {
+    const kmMatches = [...normalized.matchAll(/(\d+[.,]\d+|\d+)\s*km/gi)];
+    if (kmMatches.length >= 2) {
+      result.pickupDistance = parseFloat(kmMatches[0][1].replace(",", "."));
+      result.tripDistance = parseFloat(kmMatches[1][1].replace(",", "."));
+    } else if (kmMatches.length === 1) {
+      result.tripDistance = parseFloat(kmMatches[0][1].replace(",", "."));
     }
   }
 
-  const timeMatches = text.match(/(\d+)\s*min/gi);
-  if (timeMatches) {
-    const times = timeMatches.map((m) => {
-      const num = m.match(/(\d+)/);
-      return num ? parseInt(num[1]) : 0;
-    });
-    result.estimatedTime = times.reduce((a, b) => a + b, 0);
+  // Fallback: bare min values
+  if (result.pickupTime == null && result.tripTime == null) {
+    const minMatches = [...normalized.matchAll(/(\d+)\s*min/gi)];
+    if (minMatches.length >= 2) {
+      result.pickupTime = parseInt(minMatches[0][1]);
+      result.tripTime = parseInt(minMatches[1][1]);
+    } else if (minMatches.length === 1) {
+      result.tripTime = parseInt(minMatches[0][1]);
+    }
   }
 
-  // rating: "4,79" or "★ 4.79"
-  const ratingMatch = text.match(/[★*]\s*(\d[.,]\d{1,2})/);
-  if (ratingMatch) {
-    result.rating = parseFloat(ratingMatch[1].replace(",", "."));
+  // Addresses: lines after "od miejsca odbioru" / "przejazd"
+  const lines = normalized.split("\n").map((l) => l.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    if (/od miejsca odbioru|podjazd|pickup/i.test(lines[i]) && lines[i + 1]) {
+      result.pickupAddress = lines[i + 1];
+    }
+    if (/przejazd|kurs|trip/i.test(lines[i]) && lines[i + 1]) {
+      result.destinationAddress = lines[i + 1];
+    }
   }
 
   return result;

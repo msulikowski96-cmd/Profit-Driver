@@ -14,12 +14,11 @@ import Colors from "@/constants/colors";
 import { RideAnalysis, Platform as RidePlatform } from "@/context/RideHistoryContext";
 import { useRideHistory } from "@/context/RideHistoryContext";
 import { useSettings } from "@/context/SettingsContext";
-import { calculateRide, getAveragePrice, recordPrice } from "@/utils/calculator";
+import { calculateRide, getAveragePrice, recordPrice, CalculationResult } from "@/utils/calculator";
 import { OverlayPreview } from "@/components/OverlayPreview";
 import { ResultCard } from "@/components/ResultCard";
-import { RideInputModal } from "@/components/RideInputModal";
+import { RideInputModal, RideInputData } from "@/components/RideInputModal";
 import { PlatformBadge } from "@/components/PlatformBadge";
-import { CalculationResult } from "@/utils/calculator";
 
 interface FullAnalysis {
   ride: RideAnalysis;
@@ -37,22 +36,16 @@ export default function AnalyzeScreen() {
 
   const isWeb = Platform.OS === "web";
 
-  const handleAnalyze = async (data: {
-    platform: RidePlatform;
-    price: number;
-    pickupDistance: number;
-    tripDistance: number;
-    estimatedTime: number;
-    rating?: number;
-  }) => {
+  const handleAnalyze = async (data: RideInputData) => {
     setShowModal(false);
 
     const result = calculateRide(
       {
         price: data.price,
         pickupDistance: data.pickupDistance,
+        pickupTime: data.pickupTime,
         tripDistance: data.tripDistance,
-        estimatedTime: data.estimatedTime,
+        tripTime: data.tripTime,
         rating: data.rating,
       },
       settings
@@ -64,17 +57,24 @@ export default function AnalyzeScreen() {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       timestamp: Date.now(),
       platform: data.platform,
+      serviceType: data.serviceType,
+      paymentType: data.paymentType,
       price: data.price,
       pickupDistance: data.pickupDistance,
+      pickupTime: data.pickupTime,
       tripDistance: data.tripDistance,
-      estimatedTime: data.estimatedTime,
+      tripTime: data.tripTime,
       rating: data.rating,
+      pickupAddress: data.pickupAddress,
+      destinationAddress: data.destinationAddress,
       totalDistance: result.totalDistance,
+      totalTime: result.totalTime,
       pricePerKm: result.pricePerKm,
       pricePerHour: result.pricePerHour,
       pricePerMinute: result.pricePerMinute,
       estimatedProfit: result.estimatedProfit,
       deadKmRatio: result.deadKmRatio,
+      deadTimeRatio: result.deadTimeRatio,
       isProfitable: result.isProfitable,
       profitabilityScore: result.profitabilityScore,
       failedReasons: result.failedReasons,
@@ -140,11 +140,7 @@ export default function AnalyzeScreen() {
           <View style={styles.section}>
             <ResultCard
               result={fullAnalysis.result}
-              price={fullAnalysis.ride.price}
-              pickupDistance={fullAnalysis.ride.pickupDistance}
-              tripDistance={fullAnalysis.ride.tripDistance}
-              estimatedTime={fullAnalysis.ride.estimatedTime}
-              rating={fullAnalysis.ride.rating}
+              ride={fullAnalysis.ride}
             />
           </View>
         ) : (
@@ -158,18 +154,17 @@ export default function AnalyzeScreen() {
             {recentRides.map((ride) => (
               <View key={ride.id} style={styles.miniCard}>
                 <PlatformBadge platform={ride.platform} size="sm" />
-                <Text style={styles.miniPrice}>{ride.price.toFixed(2)} zł</Text>
-                <Text style={styles.miniKm}>{ride.totalDistance.toFixed(1)} km</Text>
-                <View style={styles.miniRight}>
-                  <Text style={[styles.miniScore, {
-                    color: ride.isProfitable ? Colors.light.tint : Colors.light.danger
-                  }]}>
-                    {ride.profitabilityScore}/100
+                <View style={styles.miniMiddle}>
+                  <Text style={styles.miniPrice}>{ride.price.toFixed(2)} zł</Text>
+                  <Text style={styles.miniDetail}>
+                    {ride.serviceType} · {ride.totalDistance.toFixed(1)} km · {ride.totalTime} min
                   </Text>
-                  <View style={[styles.miniDot, {
-                    backgroundColor: ride.isProfitable ? Colors.light.tint : Colors.light.danger
-                  }]} />
                 </View>
+                <Text style={[styles.miniScore, {
+                  color: ride.isProfitable ? Colors.light.tint : Colors.light.danger
+                }]}>
+                  {ride.profitabilityScore}/100
+                </Text>
               </View>
             ))}
           </View>
@@ -241,11 +236,10 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 12, marginBottom: 8,
     borderWidth: 1, borderColor: Colors.light.border,
   },
-  miniPrice: { flex: 1, color: Colors.light.text, fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  miniKm: { color: Colors.light.textSecondary, fontSize: 13, fontFamily: "Inter_400Regular" },
-  miniRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-  miniScore: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  miniDot: { width: 6, height: 6, borderRadius: 3 },
+  miniMiddle: { flex: 1, gap: 2 },
+  miniPrice: { color: Colors.light.text, fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  miniDetail: { color: Colors.light.textMuted, fontSize: 11, fontFamily: "Inter_400Regular" },
+  miniScore: { fontSize: 13, fontFamily: "Inter_700Bold" },
   fab: {
     position: "absolute", alignSelf: "center",
     flexDirection: "row", alignItems: "center",
