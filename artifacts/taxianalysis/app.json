@@ -17,7 +17,22 @@
       "supportsTablet": false
     },
     "android": {
-      "backgroundColor": "#0A0A0F"
+      "backgroundColor": "#0A0A0F",
+      "package": "com.taxianalysis.app",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.BIND_ACCESSIBILITY_SERVICE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0A0A0F"
+      }
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -35,6 +50,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "taxianalysis"
+      }
     }
   }
 }
