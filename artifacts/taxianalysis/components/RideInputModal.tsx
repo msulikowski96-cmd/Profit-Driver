@@ -56,6 +56,7 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onAnalyze: (data: RideInputData) => void;
+  prefillData?: Partial<RideInputData>;
 }
 
 const SERVICE_TYPES: Record<RidePlatform, string[]> = {
@@ -90,7 +91,7 @@ const EMPTY_FORM: RideFormData = {
   destinationAddress: "",
 };
 
-export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
+export function RideInputModal({ visible, onClose, onAnalyze, prefillData }: Props) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(700)).current;
 
@@ -101,6 +102,29 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
 
   useEffect(() => {
     if (visible) {
+      // Wypełnij formularz danymi z powiadomienia jeśli dostępne
+      if (prefillData) {
+        const platform = prefillData.platform ?? "uber";
+        setForm({
+          platform,
+          serviceType: prefillData.serviceType ?? SERVICE_TYPES[platform][0],
+          paymentType: prefillData.paymentType ?? "cash",
+          price: prefillData.price != null && prefillData.price > 0 ? String(prefillData.price) : "",
+          rating: prefillData.rating != null ? String(prefillData.rating) : "",
+          pickupDistance: prefillData.pickupDistance != null ? String(prefillData.pickupDistance) : "",
+          pickupTime: prefillData.pickupTime != null ? String(prefillData.pickupTime) : "",
+          tripDistance: prefillData.tripDistance != null ? String(prefillData.tripDistance) : "",
+          tripTime: prefillData.tripTime != null ? String(prefillData.tripTime) : "",
+          pickupAddress: prefillData.pickupAddress ?? "",
+          destinationAddress: prefillData.destinationAddress ?? "",
+        });
+        if (prefillData.pickupAddress || prefillData.destinationAddress) {
+          setShowAddresses(true);
+        }
+      } else {
+        setForm(EMPTY_FORM);
+        setShowAddresses(false);
+      }
       Animated.spring(slideAnim, {
         toValue: 0,
         useNativeDriver: true,
@@ -114,7 +138,7 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
         useNativeDriver: true,
       }).start();
     }
-  }, [visible]);
+  }, [visible, prefillData]);
 
   const update = <K extends keyof RideFormData>(key: K, val: RideFormData[K]) =>
     setForm((f) => ({ ...f, [key]: val }));
@@ -210,6 +234,16 @@ export function RideInputModal({ visible, onClose, onAnalyze }: Props) {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
+                {/* Baner: dane z powiadomienia */}
+                {prefillData && (
+                  <View style={styles.prefillBanner}>
+                    <Feather name="bell" size={13} color={Colors.light.tint} />
+                    <Text style={styles.prefillBannerText}>
+                      Dane wypełnione z powiadomienia — sprawdź i zatwierdź
+                    </Text>
+                  </View>
+                )}
+
                 {/* Platform */}
                 <View style={styles.platformRow}>
                   {PLATFORMS.map((p) => (
@@ -694,5 +728,24 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 16,
     fontFamily: "Inter_700Bold",
+  },
+  prefillBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: Colors.light.tintGlow,
+    borderWidth: 1,
+    borderColor: `${Colors.light.tint}40`,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  prefillBannerText: {
+    flex: 1,
+    color: Colors.light.tint,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 17,
   },
 });

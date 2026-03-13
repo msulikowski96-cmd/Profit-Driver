@@ -19,8 +19,9 @@
     "android": {
       "backgroundColor": "#0A0A0F",
       "package": "com.taxianalysis.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
+        "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",
         "android.permission.BIND_ACCESSIBILITY_SERVICE",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.FOREGROUND_SERVICE",
@@ -45,7 +46,8 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/withRideNotificationListener"
     ],
     "experiments": {
       "typedRoutes": true,
