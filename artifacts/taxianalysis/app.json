@@ -47,7 +47,9 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "./plugins/withRideNotificationListener"
+      "./plugins/withRideNotificationListener",
+      "./plugins/withRideAccessibilityService",
+      "./plugins/withFloatingOverlay"
     ],
     "experiments": {
       "typedRoutes": true,

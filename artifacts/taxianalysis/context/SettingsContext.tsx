@@ -42,6 +42,8 @@ export interface Settings {
   overlayElements: OverlayElements;
   accessibilityEnabled: boolean;
   overlayPermissionEnabled: boolean;
+  colorByThreshold: boolean;
+  overlayFontSize: number;
 }
 
 const DEFAULT_OVERLAY_ELEMENTS: OverlayElements = {
@@ -72,6 +74,8 @@ export const DEFAULT_SETTINGS: Settings = {
   overlayElements: DEFAULT_OVERLAY_ELEMENTS,
   accessibilityEnabled: false,
   overlayPermissionEnabled: false,
+  colorByThreshold: true,
+  overlayFontSize: 13,
 };
 
 const STORAGE_KEY = "taxianalysis_settings_v3";
