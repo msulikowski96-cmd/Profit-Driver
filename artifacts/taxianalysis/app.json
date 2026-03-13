@@ -50,7 +50,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "owner": "teabe79ths"
+    }
   }
 }
